@@ -11,23 +11,45 @@ type problem struct {
 	a string
 }
 
+type quizGame struct {
+}
+type quiz interface {
+	loadProblems(filename string) ([]problem, error)
+	startQuiz([]problem)
+}
+
+func (qg quizGame) loadProblems(filename string) ([]problem, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	records, err := csv.NewReader(file).ReadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return parseLines(records), nil
+}
+
 func main() {
 	fmt.Println("################")
 	fmt.Println("Start Quiz Game")
 	fmt.Println("################")
+	quiz := quizGame{}
 
-	file, err := os.Open("problems.csv")
+	problems, err := quiz.loadProblems("problems.csv")
 	if err != nil {
-		exit(fmt.Sprintf("Failed to open the CSV file: %s.\n", "problems"))
+		exit(err.Error())
 	}
 
-	records, err := csv.NewReader(file).ReadAll()
-	if err != nil {
-		exit("Failed to read record the provided CSV file.")
-	}
+	correct := quiz.startQuiz(problems)
 
-	problems := parseLines(records)
+	fmt.Printf("Your score %d out of %d.\n", correct, len(problems))
 
+}
+func (qg quizGame) startQuiz(problems []problem) int {
 	correct := 0
 	for i, p := range problems {
 		fmt.Printf("Problem #%d: %s = \n", i+1, p.q)
@@ -38,16 +60,13 @@ func main() {
 			correct++
 		}
 	}
-	fmt.Printf("Your score %d out of %d.\n", correct, len(problems))
+	return correct
 }
-
 func parseLines(records [][]string) []problem {
 	var problems []problem
 
 	for _, line := range records {
-		var problem problem
-		problem.q = line[0]
-		problem.a = line[1]
+		problem := problem{q: line[0], a: line[1]}
 		problems = append(problems, problem)
 	}
 

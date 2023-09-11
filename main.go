@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/csv"
+	"flag"
 	"fmt"
 	"os"
+	"time"
 )
 
 type problem struct {
@@ -18,8 +20,9 @@ type quiz interface {
 	startQuiz([]problem)
 }
 
-func (qg quizGame) loadProblems(filename string) ([]problem, error) {
-	file, err := os.Open(filename)
+func (qg quizGame) loadProblems(csvFileName *string) ([]problem, error) {
+	flag.Parse()
+	file, err := os.Open(*csvFileName)
 	if err != nil {
 		return nil, err
 	}
@@ -39,25 +42,39 @@ func main() {
 	fmt.Println("################")
 	quiz := quizGame{}
 
-	problems, err := quiz.loadProblems("problems.csv")
+	csvFileName := flag.String("csv", "problems.csv", "a csv file in the format of 'question,answer'")
+	timeLimit := flag.Int("limit", 3, "the time limit for the quiz in seconds")
+
+	problems, err := quiz.loadProblems(csvFileName)
 	if err != nil {
 		exit(err.Error())
 	}
 
-	correct := quiz.startQuiz(problems)
+	correct := quiz.startQuiz(problems, timeLimit)
 
 	fmt.Printf("Your score %d out of %d.\n", correct, len(problems))
 
 }
-func (qg quizGame) startQuiz(problems []problem) int {
+func (qg quizGame) startQuiz(problems []problem, timeLimit *int) int {
+	timer := time.NewTimer(time.Duration(*timeLimit) * time.Second)
 	correct := 0
 	for i, p := range problems {
 		fmt.Printf("Problem #%d: %s = \n", i+1, p.q)
+		answerCh := make(chan string)
+		go func() {
+			var answer string
+			fmt.Scanf("%s\n", &answer)
+			answerCh <- answer
+		}()
 
-		var answer string
-		fmt.Scanf("%s\n", &answer)
-		if answer == p.a {
-			correct++
+		select {
+		case <-timer.C:
+			fmt.Printf("time out!!!\n")
+			return correct
+		case answer := <-answerCh:
+			if answer == p.a {
+				correct++
+			}
 		}
 	}
 	return correct

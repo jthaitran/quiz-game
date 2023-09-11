@@ -8,32 +8,30 @@ import (
 )
 
 // Helper function to create a temporary CSV file for testing
-func createTempCSV(content string) (string, error) {
-	tempFile, err := os.CreateTemp("", "temp.csv")
+func createTempCSV(csvFileName string, content string) error {
+	file, err := os.Create(csvFileName)
 	if err != nil {
-		return "", err
+		return err
 	}
-	defer tempFile.Close()
+	defer file.Close()
 
-	_, err = tempFile.WriteString(content)
-	if err != nil {
-		return "", err
-	}
-
-	return tempFile.Name(), nil
+	_, err = file.WriteString(content)
+	return err
 }
 
 func TestLoadProblems(t *testing.T) {
 	// Create a temporary CSV file for testing
+	csvFileName := "test_problems.csv"
 	csvContent := "question1,answer1\nquestion2,answer2\n"
-	tempFile, err := createTempCSV(csvContent)
+
+	err := createTempCSV(csvFileName, csvContent)
 	if err != nil {
 		t.Fatalf("Error creating temporary CSV file: %v", err)
 	}
-	defer os.Remove(tempFile)
+	defer os.Remove(csvFileName)
 
 	quiz := quizGame{}
-	problems, err := quiz.loadProblems(tempFile)
+	problems, err := quiz.loadProblems(&csvFileName)
 	if err != nil {
 		t.Fatalf("Error loading problems from CSV: %v", err)
 	}
@@ -62,6 +60,8 @@ func TestStartQuiz(t *testing.T) {
 
 	// Simulate user input by creating a string containing the user's answers separated by newline characters (\n).
 	userInput := "2\n4\n"
+	timeLimit := 5
+	timeLimitP := &timeLimit
 	reader := strings.NewReader(userInput)
 
 	// Create a custom os.File using a pipe
@@ -84,7 +84,7 @@ func TestStartQuiz(t *testing.T) {
 	}()
 
 	quiz := quizGame{}
-	correct := quiz.startQuiz(problems)
+	correct := quiz.startQuiz(problems, timeLimitP)
 
 	expectedCorrect := 2
 	if correct != expectedCorrect {
